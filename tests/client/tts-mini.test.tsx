@@ -658,7 +658,7 @@ describe('迷你条是浮窗：两个完整形态、可拖、可收起', () => {
       fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 1000, clientY: 20 })
       fireEvent.pointerUp(bar, { pointerId: 1, clientX: 1000, clientY: 20 })
       expect((miniBarStore.get().cy ?? 0) - CAPSULE_SIZE.height / 2, '整块停在窗控带下沿之下')
-        .toBeGreaterThanOrEqual(68)
+        .toBeGreaterThanOrEqual(48)
     } finally {
       document.documentElement.removeAttribute('data-windows-titlebar')
       document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')

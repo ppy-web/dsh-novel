@@ -13,9 +13,9 @@ import { ls } from '../../src/client/util.js'
 
 const VP = { width: 1024, height: 768, topInset: 0 }
 
-/** 窗控带一档的视口读数（桌面版 DSH：栏高 48 + 20 呼吸带）：浮窗进了这条带连拖面都摸不到，
- *  这是「不可达」不是「被挡住」——可达区的顶界从带的下沿起算。 */
-const VP_CHROME = { width: 1024, height: 768, topInset: 68 }
+/** 窗控带一档的视口读数（桌面版 DSH：栏高 48，安全顶就是带的下沿）：浮窗进了这条带连拖面都
+ *  摸不到，这是「不可达」不是「被挡住」——可达区的顶界就是带的下沿，不带视觉余量。 */
+const VP_CHROME = { width: 1024, height: 768, topInset: 48 }
 
 /** 落盘位与 `mini-bar-state` 同一枚键：读写都走 `ls` 那道 guard，不碰裸 `localStorage` 全局——
  *  本仓的 JS 宿主与测试环境里它都可能缺席。 */
@@ -342,53 +342,53 @@ describe('浮窗可达区：宿主窗控带是不可达区', () => {
   it('拖到右上角松手吸附：整块留在窗控带下', () => {
     setMiniBarCenter(980, 24, CAPSULE_SIZE, VP_CHROME)
     snapMiniBarToEdge(CAPSULE_SIZE, VP_CHROME)
-    expect((miniBarStore.get().cy ?? 0) - CAPSULE_SIZE.height / 2).toBeGreaterThanOrEqual(68)
+    expect((miniBarStore.get().cy ?? 0) - CAPSULE_SIZE.height / 2).toBeGreaterThanOrEqual(48)
   })
 
   it('吸附到顶 = 贴窗控带下沿，不是贴视口顶', () => {
-    setMiniBarCenter(500, 100, CAPSULE_SIZE, VP_CHROME)   // 顶 gap 10 ≤ 24
+    setMiniBarCenter(500, 90, CAPSULE_SIZE, VP_CHROME)   // 顶 gap 20 ≤ 24
     snapMiniBarToEdge(CAPSULE_SIZE, VP_CHROME)
-    expect(miniBarStore.get()).toMatchObject({ cy: 68 + CAPSULE_SIZE.height / 2 })
+    expect(miniBarStore.get()).toMatchObject({ cy: 48 + CAPSULE_SIZE.height / 2 })
   })
 
   it('落在窗控带下的旧现场，重夹时捞回可达区', () => {
     setMiniBarCenter(980, 22, CAPSULE_SIZE, { width: 1024, height: 768, topInset: 0 })
     clampMiniBarIntoViewport(CAPSULE_SIZE, VP_CHROME)
-    expect((miniBarStore.get().cy ?? 0) - CAPSULE_SIZE.height / 2).toBeGreaterThanOrEqual(68)
+    expect((miniBarStore.get().cy ?? 0) - CAPSULE_SIZE.height / 2).toBeGreaterThanOrEqual(48)
   })
 
   it('呈现高度吃安全顶：上限是可达高 − 视口边距', () => {
     const state = { cx: null, cy: null, w: 9999, h: 9999, collapsed: false }
-    expect(resolvedMiniBarSize(state, { width: 1024, height: 300, topInset: 68 }).height)
-      .toBeLessThanOrEqual(300 - 68 - 16)
+    expect(resolvedMiniBarSize(state, { width: 1024, height: 300, topInset: 48 }).height)
+      .toBeLessThanOrEqual(300 - 48 - 16)
   })
 
   it('设置弹层不开进窗控带：上方余量从安全顶起算', () => {
-    const state = { cx: 512, cy: 168, w: null, h: null, collapsed: false }   // 贴安全顶：cy = 68 + 100
-    expect(miniBarPopoverFlip(state, VP_CHROME, DEFAULT_MINI_BAR_SIZE, 50), '带里那 68px 不算上方余量').toBe(true)
-    expect(miniBarPopoverRoom(state, VP_CHROME, DEFAULT_MINI_BAR_SIZE, 50)).toBe(768 - 168 - 100 - 6 - 8)
+    const state = { cx: 512, cy: 148, w: null, h: null, collapsed: false }   // 贴安全顶：cy = 48 + 100
+    expect(miniBarPopoverFlip(state, VP_CHROME, DEFAULT_MINI_BAR_SIZE, 50), '带里那 48px 不算上方余量').toBe(true)
+    expect(miniBarPopoverRoom(state, VP_CHROME, DEFAULT_MINI_BAR_SIZE, 50)).toBe(768 - 148 - 100 - 6 - 8)
   })
 
   it('贴安全顶的块在窗控带读数变化后跟到新安全顶（全屏切换）', () => {
-    setMiniBarCenter(500, 90, CAPSULE_SIZE, VP_CHROME)
+    setMiniBarCenter(500, 70, CAPSULE_SIZE, VP_CHROME)
     snapMiniBarToEdge(CAPSULE_SIZE, VP_CHROME)
-    followFlushEdgesOnResize(CAPSULE_SIZE, VP_CHROME, { width: 1024, height: 768, topInset: 20 })
-    expect(miniBarStore.get().cy).toBe(20 + CAPSULE_SIZE.height / 2)
+    followFlushEdgesOnResize(CAPSULE_SIZE, VP_CHROME, { width: 1024, height: 768, topInset: 0 })
+    expect(miniBarStore.get().cy).toBe(0 + CAPSULE_SIZE.height / 2)
   })
 })
 
-describe('窗控带读数：同宿主浮层夹取口径', () => {
-  it('无栏 = 0；有栏 = 栏高 + 呼吸带；全屏 = 只剩呼吸带；栏高认不出也只剩呼吸带', () => {
+describe('窗控带读数：可达性口径', () => {
+  it('无栏 = 0；有栏 = 栏高；全屏 = 0；栏高认不出 = 0', () => {
     const root = document.createElement('div')
     expect(frameTopInsetOf(null), '无 DOM 宿主回 0').toBe(0)
     expect(frameTopInsetOf(root), '没有窗控栏（纯浏览器）= 0').toBe(0)
     root.setAttribute('data-windows-titlebar', '')
     root.style.setProperty('--dsh-windows-titlebar-height', '48px')
-    expect(frameTopInsetOf(root), '栏高 48 + 呼吸带 20').toBe(68)
+    expect(frameTopInsetOf(root), '栏高 48：安全顶就是带的下沿').toBe(48)
     root.setAttribute('data-fullscreen', '')
-    expect(frameTopInsetOf(root), '全屏：栏不占位').toBe(20)
+    expect(frameTopInsetOf(root), '全屏：栏不占位 = 0').toBe(0)
     root.removeAttribute('data-fullscreen')
     root.style.removeProperty('--dsh-windows-titlebar-height')
-    expect(frameTopInsetOf(root), '栏高认不出：不猜，只剩呼吸带').toBe(20)
+    expect(frameTopInsetOf(root), '栏高认不出：读数失败只到这一格 = 0').toBe(0)
   })
 })

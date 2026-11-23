@@ -431,20 +431,16 @@ function hostWindow(): Window | null {
   return host.window ?? null
 }
 
-/** 窗控带下沿再留的呼吸带：同宿主浮层的夹取口径（带不占位的场景也留 20px）。 */
-const CHROME_TOP_CLEARANCE = 20
-
 /**
  * 宿主窗控带（桌面壳的缩小 / 最大化 / 关闭栏，整条是窗口拖拽区）对视口顶的固定遮挡：
- * 读数口径同宿主浮层夹取——有 Windows 窗控栏且非全屏 = 栏高 + 呼吸带，有栏但在全屏 = 只剩呼吸带，
- * 没有这条栏（纯浏览器）= 0。`root` 缺席（无 DOM 宿主）也回 0。
+ * 可达性口径——有 Windows 窗控栏且非全屏 = 栏高本身（安全顶就是带的下沿，不带视觉余量），
+ * 全屏（栏不占位）与没有这条栏（纯浏览器）= 0。栏高认不出也按 0：读数失败的半径只到这一格。
+ * `root` 缺席（无 DOM 宿主）同样回 0。
  */
 export function frameTopInsetOf(root: HTMLElement | null): number {
-  if (root === null || !root.hasAttribute('data-windows-titlebar')) return 0
-  const height = root.hasAttribute('data-fullscreen')
-    ? 0
-    : Number.parseFloat(root.style.getPropertyValue('--dsh-windows-titlebar-height'))
-  return (Number.isFinite(height) ? height : 0) + CHROME_TOP_CLEARANCE
+  if (root === null || !root.hasAttribute('data-windows-titlebar') || root.hasAttribute('data-fullscreen')) return 0
+  const height = Number.parseFloat(root.style.getPropertyValue('--dsh-windows-titlebar-height'))
+  return Number.isFinite(height) ? height : 0
 }
 
 /** `window` 尺寸与窗控带遮挡的唯一读处：控制器构造时读一次，resize 时再读一次。

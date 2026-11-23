@@ -297,7 +297,7 @@ _唯一实现_: `client/reader-geometry.ts` 的 `createReaderGeometry` / `curren
 sticky 顶条盖住视口最上那一条的实测高；「看得见的顶」= 端口顶（或滚动位）加这份夹成非负的遮挡。存、取、落位、导航高亮与「从阅读位置起播」探针共吃同一个口径。 _唯一实现_: `client/viewport-top.ts` 的 `clampTopInset`（读数来源 `client/views/ReaderView.tsx` 的 `topInset`，每次现量）。 _Avoid_: 视口顶判据、顶条样式与高度常量。
 
 **窗控带与安全顶（window chrome / safe top）**:
-桌面壳画在 `shell.overlay` 之上的窗口控制栏（缩小 / 最大化 / 关闭，整条是窗口拖拽区）对视口顶的固定遮挡；带的下沿就是浮窗可达区的顶界「安全顶」（带下再留 20px 呼吸带，同宿主浮层夹取口径；没有这条栏时为 0）。遮挡读数随窗口读数一起取，进判据线前过 `clampTopInset`。 _唯一实现_: `client/tts/mini-bar-state.ts` 的 `frameTopInsetOf`。 _Avoid_: 顶条遮挡（阅读器自己的 sticky 顶条）、视口边距、宿主 z 序。
+桌面壳画在 `shell.overlay` 之上的窗口控制栏（缩小 / 最大化 / 关闭，整条是窗口拖拽区）对视口顶的固定遮挡；带的下沿就是浮窗可达区的顶界「安全顶」（安全顶就是带的下沿、不带视觉余量；全屏与没有这条栏时为 0）。遮挡读数随窗口读数一起取，进判据线前过 `clampTopInset`。 _唯一实现_: `client/tts/mini-bar-state.ts` 的 `frameTopInsetOf`。 _Avoid_: 顶条遮挡（阅读器自己的 sticky 顶条）、视口边距、宿主 z 序。
 
 **在线阅读（online reading）**:
 一条在线书的目录与正文取值管线：目录读数先走一层进程内缓存（键含代际，refresh 绕过读；晚到的旧目录不许盖掉刚刷新的那份），其后是磁盘缓存优先、目录在途去重（身份含代际与 refresh）、翻页跟进、缓存写回，连同 tocUrl 解析、subContent 追加与空正文异常。**在途去重与进程内缓存都只服务目录**。**本地书不走这条线**（`ADR-0047`）。
