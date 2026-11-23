@@ -631,7 +631,7 @@ describe('迷你条是浮窗：两个完整形态、可拖、可收起', () => {
   it('胶囊拖到左下角：两轴独立吸附（左 + 底），拖过不算点', async () => {
     setMiniBarCollapsed(true)
     const bar = await listening()
-    setMiniBarCenter(104, 384, CAPSULE_SIZE, { width: 1024, height: 768 })  // 起点：胶囊贴左缘
+    setMiniBarCenter(104, 384, CAPSULE_SIZE, { width: 1024, height: 768, topInset: 0 })  // 起点：胶囊贴左缘
     fireEvent.pointerDown(screen.getByRole('button', { name: /展开迷你条/ }), {
       pointerId: 1, clientX: 200, clientY: 400,
     })
@@ -643,6 +643,26 @@ describe('迷你条是浮窗：两个完整形态、可拖、可收起', () => {
     // 真机在 pointerup 后会补发一次 click（detail > 0）：被胶囊的捕获层吞掉，不是一次展开
     fireEvent.click(screen.getByRole('button', { name: /展开迷你条/ }), { detail: 1 })
     expect(miniBarStore.get().collapsed).toBe(true)
+  })
+
+  it('窗控带当头：拖到右上角松手后整块仍在带下（拖得出来）', async () => {
+    // 桌面版 DSH 的窗控带读数：html[data-windows-titlebar] + --dsh-windows-titlebar-height = 栏高 48
+    document.documentElement.setAttribute('data-windows-titlebar', '')
+    document.documentElement.style.setProperty('--dsh-windows-titlebar-height', '48px')
+    try {
+      setMiniBarCollapsed(true)
+      const bar = await listening()
+      fireEvent.pointerDown(screen.getByRole('button', { name: /展开迷你条/ }), {
+        pointerId: 1, clientX: 800, clientY: 400,
+      })
+      fireEvent.pointerMove(bar, { pointerId: 1, buttons: 1, clientX: 1000, clientY: 20 })
+      fireEvent.pointerUp(bar, { pointerId: 1, clientX: 1000, clientY: 20 })
+      expect((miniBarStore.get().cy ?? 0) - CAPSULE_SIZE.height / 2, '整块停在窗控带下沿之下')
+        .toBeGreaterThanOrEqual(68)
+    } finally {
+      document.documentElement.removeAttribute('data-windows-titlebar')
+      document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')
+    }
   })
 
   it('拖动后被吞掉的补发 click 落地清零：随后键盘激活能展开（不再被拖动历史挡住）', async () => {
@@ -753,7 +773,7 @@ describe('两态浮窗：收起胶囊 / 展开边栏（ADR-0073）', () => {
    *  块悬在屏内时 dock 必须报 data-flush='none'，样式层才会在四条边上都画描边。 */
   it('data-flush：缺省贴右、吸附贴左、自由落位为 none（side 不能代答）', async () => {
     const bar = await listening()
-    const view = { width: window.innerWidth, height: window.innerHeight }
+    const view = { width: window.innerWidth, height: window.innerHeight, topInset: 0 }
     expect(bar.getAttribute('data-flush')).toBe('right')
     // 现场是模块级 store：直接推进去要过 act，否则订阅它的组件不会在这一行里重渲
     await act(async () => { setMiniBarCenter(864, 384, DEFAULT_MINI_BAR_SIZE, view) })
@@ -796,7 +816,7 @@ describe('两态浮窗：收起胶囊 / 展开边栏（ADR-0073）', () => {
    *  夹取只管浮窗本体，弹层就被视口裁掉半截。 */
   it('设置弹层方向跟着现场走：块挪上挪下，data-flip 当场改口，余量跟着换', async () => {
     const bar = await listening()
-    const view = { width: window.innerWidth, height: window.innerHeight }
+    const view = { width: window.innerWidth, height: window.innerHeight, topInset: 0 }
     const room = (): string => bar.style.getPropertyValue('--novel-tts-popover-room')
     fireEvent.click(screen.getByRole('button', { name: '听书设置' }))
     await act(async () => { setMiniBarCenter(864, 600, DEFAULT_MINI_BAR_SIZE, view) })   // 中下：上方地方够
@@ -890,7 +910,7 @@ describe('两态浮窗：收起胶囊 / 展开边栏（ADR-0073）', () => {
 
   it('设置弹层翻转吃内容实测高：矮卡上方装得下就不翻（固定档会误翻）', async () => {
     const bar = await listening()
-    const view = { width: window.innerWidth, height: window.innerHeight }
+    const view = { width: window.innerWidth, height: window.innerHeight, topInset: 0 }
     const descriptor = must(
       Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight'), 'scrollHeight 访问器',
     )

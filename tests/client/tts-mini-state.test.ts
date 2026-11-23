@@ -3,15 +3,19 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   CAPSULE_SIZE, DEFAULT_MINI_BAR, DEFAULT_MINI_BAR_SIZE, clampMiniBarIntoViewport,
-  deriveMiniBarFlush, deriveMiniBarSide, followFlushEdgesOnResize, frameFromDrag, miniBarCenterOf,
-  miniBarLayout, miniBarPopoverFlip, miniBarPopoverRoom, miniBarStore, parseMiniBarState, persistMiniBarState,
-  resetMiniBarPosition, resetMiniBarSize, resolveFormSize, resolvedMiniBarSize, setMiniBarCenter,
-  setMiniBarCollapsed, setMiniBarFrame, setMiniBarSize, snapMiniBarToEdge,
+  deriveMiniBarFlush, deriveMiniBarSide, followFlushEdgesOnResize, frameFromDrag, frameTopInsetOf,
+  miniBarCenterOf, miniBarLayout, miniBarPopoverFlip, miniBarPopoverRoom, miniBarStore, parseMiniBarState,
+  persistMiniBarState, resetMiniBarPosition, resetMiniBarSize, resolveFormSize, resolvedMiniBarSize,
+  setMiniBarCenter, setMiniBarCollapsed, setMiniBarFrame, setMiniBarSize, snapMiniBarToEdge,
 } from '../../src/client/tts/mini-bar-state.js'
 import type { MiniBarFrame } from '../../src/client/tts/mini-bar-state.js'
 import { ls } from '../../src/client/util.js'
 
-const VP = { width: 1024, height: 768 }
+const VP = { width: 1024, height: 768, topInset: 0 }
+
+/** 窗控带一档的视口读数（桌面版 DSH：栏高 48 + 20 呼吸带）：浮窗进了这条带连拖面都摸不到，
+ *  这是「不可达」不是「被挡住」——可达区的顶界从带的下沿起算。 */
+const VP_CHROME = { width: 1024, height: 768, topInset: 68 }
 
 /** 落盘位与 `mini-bar-state` 同一枚键：读写都走 `ls` 那道 guard，不碰裸 `localStorage` 全局——
  *  本仓的 JS 宿主与测试环境里它都可能缺席。 */
@@ -95,10 +99,10 @@ describe('浮窗现场：中心坐标 + 派生边', () => {
 
   it('resize 跟住贴着的边：贴右缘 / 贴底缘继续贴，自由位置只夹不漂', () => {
     setMiniBarCenter(864, 668, DEFAULT_MINI_BAR_SIZE, VP)     // 贴右 + 贴底
-    followFlushEdgesOnResize(DEFAULT_MINI_BAR_SIZE, VP, { width: 1280, height: 800 })
+    followFlushEdgesOnResize(DEFAULT_MINI_BAR_SIZE, VP, { width: 1280, height: 800, topInset: 0 })
     expect(miniBarStore.get()).toMatchObject({ cx: 1120, cy: 700 })
     setMiniBarCenter(484, 354, DEFAULT_MINI_BAR_SIZE, VP)     // 自由位置
-    followFlushEdgesOnResize(DEFAULT_MINI_BAR_SIZE, VP, { width: 1280, height: 800 })
+    followFlushEdgesOnResize(DEFAULT_MINI_BAR_SIZE, VP, { width: 1280, height: 800, topInset: 0 })
     expect(miniBarStore.get()).toMatchObject({ cx: 484, cy: 354 })
   })
 
@@ -113,7 +117,7 @@ describe('浮窗现场：中心坐标 + 派生边', () => {
 
   it('resize 不把缺省轴钉成数字：只有横向落过位时，高度变化后纵向仍居中', () => {
     miniBarStore.set({ cx: 200, cy: null, w: null, h: null, collapsed: false })   // 旧现场 left + anchorY null 的形状
-    followFlushEdgesOnResize(DEFAULT_MINI_BAR_SIZE, VP, { width: 1024, height: 1080 })
+    followFlushEdgesOnResize(DEFAULT_MINI_BAR_SIZE, VP, { width: 1024, height: 1080, topInset: 0 })
     expect(miniBarStore.get(), '纵向缺省不该被写成旧视口中心 384').toMatchObject({ cx: 200, cy: null })
   })
 
@@ -201,7 +205,7 @@ describe('布局读数：缺省轴解析、一次给全的落位样式、弹层�
 // 卡片高度由上方余量收住（max-height 走 miniBarPopoverRoom），不再整块探出视口底部。
     expect(miniBarPopoverFlip(DEFAULT_MINI_BAR, VP, DEFAULT_MINI_BAR_SIZE)).toBe(false)
     // 矮视口走 60vh 收紧档（500 高 → 300）：同一中心上方够 300 → 不翻
-    const low = { width: 1024, height: 500 }
+    const low = { width: 1024, height: 500, topInset: 0 }
     expect(miniBarPopoverFlip({ cx: 864, cy: 406, w: null, h: null, collapsed: false }, low, DEFAULT_MINI_BAR_SIZE)).toBe(false)
     // 再高一格：下方余量已经是 0（块底压着视口），翻下去只会得到一条空缝 → 留在上方
     expect(miniBarPopoverFlip({ cx: 864, cy: 405, w: null, h: null, collapsed: false }, low, DEFAULT_MINI_BAR_SIZE)).toBe(false)
@@ -244,16 +248,16 @@ describe('浮窗尺寸现场：意图与呈现分离', () => {
   })
 
   it('视口小于下限：呈现尺寸取下限（块可溢出视口，不崩）', () => {
-    const small = { width: 200, height: 120 }
+    const small = { width: 200, height: 120, topInset: 0 }
     expect(resolvedMiniBarSize(DEFAULT_MINI_BAR, small)).toEqual({ width: 260, height: 162 })
     expect(resolvedMiniBarSize({ cx: null, cy: null, w: 480, h: 300, collapsed: false }, small))
       .toEqual({ width: 260, height: 162 })
   })
 
   it('视口夹取：视口 600×500 时 520×420 原样，视口 500×450 时宽夹到 484', () => {
-    expect(resolvedMiniBarSize({ cx: null, cy: null, w: 520, h: 420, collapsed: false }, { width: 600, height: 500 }))
+    expect(resolvedMiniBarSize({ cx: null, cy: null, w: 520, h: 420, collapsed: false }, { width: 600, height: 500, topInset: 0 }))
       .toEqual({ width: 520, height: 420 })
-    expect(resolvedMiniBarSize({ cx: null, cy: null, w: 520, h: 420, collapsed: false }, { width: 500, height: 450 }))
+    expect(resolvedMiniBarSize({ cx: null, cy: null, w: 520, h: 420, collapsed: false }, { width: 500, height: 450, topInset: 0 }))
       .toEqual({ width: 484, height: 420 })
   })
 
@@ -331,5 +335,60 @@ describe('拖边几何：对边锚定 + 范围夹取', () => {
     persistMiniBarState()
     const saved = JSON.parse(ls.getItem(MINI_BAR_KEY) ?? '{}') as { w?: number }
     expect(saved.w).toBe(360)
+  })
+})
+
+describe('浮窗可达区：宿主窗控带是不可达区', () => {
+  it('拖到右上角松手吸附：整块留在窗控带下', () => {
+    setMiniBarCenter(980, 24, CAPSULE_SIZE, VP_CHROME)
+    snapMiniBarToEdge(CAPSULE_SIZE, VP_CHROME)
+    expect((miniBarStore.get().cy ?? 0) - CAPSULE_SIZE.height / 2).toBeGreaterThanOrEqual(68)
+  })
+
+  it('吸附到顶 = 贴窗控带下沿，不是贴视口顶', () => {
+    setMiniBarCenter(500, 100, CAPSULE_SIZE, VP_CHROME)   // 顶 gap 10 ≤ 24
+    snapMiniBarToEdge(CAPSULE_SIZE, VP_CHROME)
+    expect(miniBarStore.get()).toMatchObject({ cy: 68 + CAPSULE_SIZE.height / 2 })
+  })
+
+  it('落在窗控带下的旧现场，重夹时捞回可达区', () => {
+    setMiniBarCenter(980, 22, CAPSULE_SIZE, { width: 1024, height: 768, topInset: 0 })
+    clampMiniBarIntoViewport(CAPSULE_SIZE, VP_CHROME)
+    expect((miniBarStore.get().cy ?? 0) - CAPSULE_SIZE.height / 2).toBeGreaterThanOrEqual(68)
+  })
+
+  it('呈现高度吃安全顶：上限是可达高 − 视口边距', () => {
+    const state = { cx: null, cy: null, w: 9999, h: 9999, collapsed: false }
+    expect(resolvedMiniBarSize(state, { width: 1024, height: 300, topInset: 68 }).height)
+      .toBeLessThanOrEqual(300 - 68 - 16)
+  })
+
+  it('设置弹层不开进窗控带：上方余量从安全顶起算', () => {
+    const state = { cx: 512, cy: 168, w: null, h: null, collapsed: false }   // 贴安全顶：cy = 68 + 100
+    expect(miniBarPopoverFlip(state, VP_CHROME, DEFAULT_MINI_BAR_SIZE, 50), '带里那 68px 不算上方余量').toBe(true)
+    expect(miniBarPopoverRoom(state, VP_CHROME, DEFAULT_MINI_BAR_SIZE, 50)).toBe(768 - 168 - 100 - 6 - 8)
+  })
+
+  it('贴安全顶的块在窗控带读数变化后跟到新安全顶（全屏切换）', () => {
+    setMiniBarCenter(500, 90, CAPSULE_SIZE, VP_CHROME)
+    snapMiniBarToEdge(CAPSULE_SIZE, VP_CHROME)
+    followFlushEdgesOnResize(CAPSULE_SIZE, VP_CHROME, { width: 1024, height: 768, topInset: 20 })
+    expect(miniBarStore.get().cy).toBe(20 + CAPSULE_SIZE.height / 2)
+  })
+})
+
+describe('窗控带读数：同宿主浮层夹取口径', () => {
+  it('无栏 = 0；有栏 = 栏高 + 呼吸带；全屏 = 只剩呼吸带；栏高认不出也只剩呼吸带', () => {
+    const root = document.createElement('div')
+    expect(frameTopInsetOf(null), '无 DOM 宿主回 0').toBe(0)
+    expect(frameTopInsetOf(root), '没有窗控栏（纯浏览器）= 0').toBe(0)
+    root.setAttribute('data-windows-titlebar', '')
+    root.style.setProperty('--dsh-windows-titlebar-height', '48px')
+    expect(frameTopInsetOf(root), '栏高 48 + 呼吸带 20').toBe(68)
+    root.setAttribute('data-fullscreen', '')
+    expect(frameTopInsetOf(root), '全屏：栏不占位').toBe(20)
+    root.removeAttribute('data-fullscreen')
+    root.style.removeProperty('--dsh-windows-titlebar-height')
+    expect(frameTopInsetOf(root), '栏高认不出：不猜，只剩呼吸带').toBe(20)
   })
 })
